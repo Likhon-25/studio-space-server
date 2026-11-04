@@ -28,6 +28,7 @@ export async function connectToMongoDB() {
 const connectClient = await connectToMongoDB();
 const db = connectClient.db("studio-space");
 const allStudios = db.collection("all-studios");
+const studioBooking = db.collection("booking-studio")
 
 app.post("/all-studios", async (req, res) => {
   const studioData = req.body;
@@ -48,6 +49,16 @@ app.get("/all-studios/:id", async(req, res) =>{
 
   res.send(result)
 })
+
+app.post("/all-studios/booking", async(req, res) =>{
+  const bookingData = req.body
+  const result = await studioBooking.insertOne(bookingData)
+  res.send(result)
+
+  console.log(result);
+})
+
+app.get("/all-studios")
 
 app.get("/", (req, res) => {
   res.send("Studio Space API is running");
