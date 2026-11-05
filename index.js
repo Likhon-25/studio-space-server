@@ -8,7 +8,8 @@ const PORT = 5000;
 
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    // origin: "http://localhost:5000",
+    // credentials: true,
   }),
 );
 app.use(express.json());
@@ -55,7 +56,7 @@ app.get("/my-studios/:email", async (req, res) => {
 });
 
 app.get("/my-bookings/:email", async (req, res) => {
-  const email = req.params.email;
+  const email = req.params.email.trim().toLowerCase();
   console.log(email, "booking email");
   const result = await studioBooking.find({ creatorEmail: email }).toArray();
   res.send(result);
@@ -76,22 +77,22 @@ app.get("/all-studios/:id", async (req, res) => {
   res.send(result);
 });
 
-app.patch("/all-studios/:id", async(req, res) =>{
-  const id = req .params.id
-  const updateData = req.body
-  const result = await  allStudios.updateOne(
-    {_id:  new ObjectId(id)},
-    {$set: updateData}
-  )
+app.patch("/all-studios/:id", async (req, res) => {
+  const id = req.params.id;
+  const updateData = req.body;
+  const result = await allStudios.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: updateData },
+  );
 
-  res.send(result)
-})
+  res.send(result);
+});
 
-app.delete("/all-studios/:id",  async(req, res) =>{
-  const id = req.params.id
-  const result = await allStudios.deleteOne({_id:  new ObjectId(id)})
-  res.send(result)
-})
+app.delete("/all-studios/:id", async (req, res) => {
+  const id = req.params.id;
+  const result = await allStudios.deleteOne({ _id: new ObjectId(id) });
+  res.send(result);
+});
 
 app.post("/all-studios/booking", async (req, res) => {
   const bookingData = req.body;
@@ -104,12 +105,26 @@ app.post("/all-studios/booking", async (req, res) => {
   console.log(result);
 });
 
-app.get("/all-studios/booking/:email", async(req, res)=>{
-  const email = req.params.email.trim().toLowerCase()
-  const result = await studioBooking.find({creatorEmail: email}).toArray()
+app.get("/all-studios/booking/:email", async (req, res) => {
+  const email = req.params.email.trim().toLowerCase();
+  const result = await studioBooking.find({ creatorEmail: email }).toArray();
   console.log(result, "result");
-  res.send(result)
-})
+  res.send(result);
+});
+
+app.patch("/all-studios/booking/:id/cancel", async (req, res) => {
+  const id = req.params.id;
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).send({ message: "Invalid booking id" });
+  }
+
+  const result = await studioBooking.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { status: "cancelled" } },
+  );
+
+  res.send(result);
+});
 
 app.get("/", (req, res) => {
   res.send("Studio Space API is running");
