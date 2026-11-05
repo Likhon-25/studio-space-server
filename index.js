@@ -43,9 +43,14 @@ app.get("/all-studios", async (req, res) => {
 });
 
 app.get("/my-studios/:email", async (req, res) => {
-  const email = req.params.email;
-  console.log(email, "email");
-  const result = await allStudios.find({ creatorEmail: email }).toArray();
+  const email = req.params.email.trim().toLowerCase();
+  const result = await allStudios.find({
+    $or: [
+      { ownerEmail: email },
+      { creatorEmail: email },
+      { hostEmail: email },
+    ],
+  }).toArray();
   res.send(result);
 });
 
@@ -90,13 +95,21 @@ app.delete("/all-studios/:id",  async(req, res) =>{
 
 app.post("/all-studios/booking", async (req, res) => {
   const bookingData = req.body;
+  if (typeof bookingData.creatorEmail === "string") {
+    bookingData.creatorEmail = bookingData.creatorEmail.trim().toLowerCase();
+  }
   const result = await studioBooking.insertOne(bookingData);
   res.send(result);
 
   console.log(result);
 });
 
-// app.get("/all-studios")
+app.get("/all-studios/booking/:email", async(req, res)=>{
+  const email = req.params.email.trim().toLowerCase()
+  const result = await studioBooking.find({creatorEmail: email}).toArray()
+  console.log(result, "result");
+  res.send(result)
+})
 
 app.get("/", (req, res) => {
   res.send("Studio Space API is running");
