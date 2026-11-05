@@ -28,7 +28,7 @@ export async function connectToMongoDB() {
 const connectClient = await connectToMongoDB();
 const db = connectClient.db("studio-space");
 const allStudios = db.collection("all-studios");
-const studioBooking = db.collection("booking-studio")
+const studioBooking = db.collection("booking-studio");
 
 app.post("/all-studios", async (req, res) => {
   const studioData = req.body;
@@ -37,28 +37,49 @@ app.post("/all-studios", async (req, res) => {
   res.send(result);
 });
 
-app.get("/all-studios", async(req, res) =>{
-  const result = await allStudios.find().toArray()
-  res.send(result)
- 
-})
+app.get("/all-studios", async (req, res) => {
+  const result = await allStudios.find().toArray();
+  res.send(result);
+});
 
-app.get("/all-studios/:id", async(req, res) =>{
-  const id = req.params.id
-  const result =  await allStudios.findOne({_id: new ObjectId(id)})
+app.get("/my-studios/:email", async (req, res) => {
+  const email = req.params.email;
+  console.log(email, "email");
+  const result = await allStudios.find({ creatorEmail: email }).toArray();
+  res.send(result);
+});
 
-  res.send(result)
-})
+app.get("/my-bookings/:email", async (req, res) => {
+  const email = req.params.email;
+  console.log(email, "booking email");
+  const result = await studioBooking.find({ creatorEmail: email }).toArray();
+  res.send(result);
+});
 
-app.post("/all-studios/booking", async(req, res) =>{
-  const bookingData = req.body
-  const result = await studioBooking.insertOne(bookingData)
-  res.send(result)
+app.get("/all-studios/booking", async (req, res) => {
+  const result = await allStudios.find().toArray();
+  res.send(result);
+});
+
+app.get("/all-studios/:id", async (req, res) => {
+  const id = req.params.id;
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).send({ message: "Invalid studio id" });
+  }
+  const result = await allStudios.findOne({ _id: new ObjectId(id) });
+
+  res.send(result);
+});
+
+app.post("/all-studios/booking", async (req, res) => {
+  const bookingData = req.body;
+  const result = await studioBooking.insertOne(bookingData);
+  res.send(result);
 
   console.log(result);
-})
+});
 
-app.get("/all-studios")
+// app.get("/all-studios")
 
 app.get("/", (req, res) => {
   res.send("Studio Space API is running");
