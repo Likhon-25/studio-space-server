@@ -71,7 +71,7 @@ app.get("/all-studios/:id", async (req, res) => {
   res.send(result);
 });
 
-app.get("/all-studios/:id", (req, res) =>{
+app.patch("/all-studios/:id", async(req, res) =>{
   const id = req .params.id
   const updateData = req.body
   const result = await  allStudios.updateOne(
@@ -79,6 +79,12 @@ app.get("/all-studios/:id", (req, res) =>{
     {$set: updateData}
   )
 
+  res.send(result)
+})
+
+app.delete("/all-studios/:id",  async(req, res) =>{
+  const id = req.params.id
+  const result = await allStudios.deleteOne({_id:  new ObjectId(id)})
   res.send(result)
 })
 
