@@ -71,6 +71,17 @@ app.get("/all-studios/:id", async (req, res) => {
   res.send(result);
 });
 
+app.get("/all-studios/:id", (req, res) =>{
+  const id = req .params.id
+  const updateData = req.body
+  const result = await  allStudios.updateOne(
+    {_id:  new ObjectId(id)},
+    {$set: updateData}
+  )
+
+  res.send(result)
+})
+
 app.post("/all-studios/booking", async (req, res) => {
   const bookingData = req.body;
   const result = await studioBooking.insertOne(bookingData);
