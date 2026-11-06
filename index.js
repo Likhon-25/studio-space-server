@@ -2,18 +2,20 @@ import { MongoClient, ObjectId } from "mongodb";
 import express from "express";
 import "dotenv/config";
 import cors from "cors";
-import { jwtVerify, createRemoteJWKSet } from "jose";
+import { decodeJwt, jwtVerify, createRemoteJWKSet } from "jose";
 
 const app = express();
 const PORT = 5000;
-const frontendUrl = (process.env.FRONTEND_URI || "http://localhost:3000")
-  .trim()
-  .replace(/\/+$/, "");
+const configuredFrontendUrls = (process.env.FRONTEND_URI || "http://localhost:3000")
+  .split(",")
+  .map((url) => url.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+const frontendUrls = new Set(configuredFrontendUrls);
 
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || origin === frontendUrl) {
+      if (!origin || frontendUrls.has(origin.replace(/\/+$/, ""))) {
         callback(null, true);
         return;
       }
@@ -41,8 +43,18 @@ const connectedClient = await connectToMongoDB();
 const db = connectedClient.db("studio-space");
 const allStudios = db.collection("all-studios");
 const studioBooking = db.collection("booking-studio");
-const JWKS = createRemoteJWKSet(new URL(`${frontendUrl}/api/auth/jwks`));
+const remoteJwkSets = new Map();
 let bookingMutationQueue = Promise.resolve();
+
+const getRemoteJwkSet = (issuer) => {
+  if (!remoteJwkSets.has(issuer)) {
+    remoteJwkSets.set(
+      issuer,
+      createRemoteJWKSet(new URL(`${issuer}/api/auth/jwks`)),
+    );
+  }
+  return remoteJwkSets.get(issuer);
+};
 
 const normalizedEmail = (email) =>
   typeof email === "string" ? email.trim().toLowerCase() : "";
@@ -80,9 +92,25 @@ const verifyToken = async (req, res, next) => {
   }
 
   try {
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer: frontendUrl,
-      audience: frontendUrl,
+    const claims = decodeJwt(token);
+    const issuer = typeof claims.iss === "string"
+      ? claims.iss.replace(/\/+$/, "")
+      : "";
+    if (!issuer) {
+      throw new Error("JWT issuer is missing");
+    }
+
+    const issuerUrl = new URL(issuer);
+    const allowedIssuer = issuerUrl.protocol === "https:"
+      || frontendUrls.has(issuerUrl.origin);
+    if (!allowedIssuer) {
+      throw new Error("JWT issuer is not allowed");
+    }
+
+    const jwks = getRemoteJwkSet(issuer);
+    const { payload } = await jwtVerify(token, jwks, {
+      issuer,
+      audience: issuer,
     });
     req.user = payload;
     next();
@@ -95,25 +123,30 @@ const verifyToken = async (req, res, next) => {
 };
 
 app.post("/all-studios", verifyToken, async (req, res) => {
-  const email = normalizedEmail(req.user.email);
-  const studioData = {
-    ...req.body,
-    hostId: req.user.sub,
-    hostName: req.user.name || "",
-    hostEmail: email,
-    hostImage: req.user.image || "",
-    creatorId: req.user.sub,
-    creatorEmail: email,
-    creatorName: req.user.name || "",
-    creatorImage: req.user.image || "",
-    ownerId: req.user.sub,
-    ownerEmail: email,
-    ownerName: req.user.name || "",
-    ownerImage: req.user.image || "",
-  };
+  try {
+    const email = normalizedEmail(req.user.email);
+    const studioData = {
+      ...req.body,
+      hostId: req.user.sub,
+      hostName: req.user.name || "",
+      hostEmail: email,
+      hostImage: req.user.image || "",
+      creatorId: req.user.sub,
+      creatorEmail: email,
+      creatorName: req.user.name || "",
+      creatorImage: req.user.image || "",
+      ownerId: req.user.sub,
+      ownerEmail: email,
+      ownerName: req.user.name || "",
+      ownerImage: req.user.image || "",
+    };
 
-  const result = await allStudios.insertOne(studioData);
-  res.send(result);
+    const result = await allStudios.insertOne(studioData);
+    res.send(result);
+  } catch (error) {
+    console.error("Studio insertion failed:", error?.message || error);
+    res.status(500).send({ message: "Unable to publish the studio right now." });
+  }
 });
 
 app.get("/all-studios", async (req, res) => {
