@@ -6,11 +6,19 @@ import { jwtVerify, createRemoteJWKSet } from "jose";
 
 const app = express();
 const PORT = 5000;
-const frontendUrl = process.env.FRONTEND_URI;
+const frontendUrl = (process.env.FRONTEND_URI || "http://localhost:3000")
+  .trim()
+  .replace(/\/+$/, "");
 
 app.use(
   cors({
-    origin: frontendUrl,
+    origin(origin, callback) {
+      if (!origin || origin === frontendUrl) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Origin not allowed by CORS"));
+    },
     credentials: true,
   }),
 );
@@ -78,7 +86,10 @@ const verifyToken = async (req, res, next) => {
     });
     req.user = payload;
     next();
-  } catch {
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("JWT verification failed:", error?.code || error?.message || error);
+    }
     return res.status(401).send({ message: "Unauthorized access" });
   }
 };
@@ -208,7 +219,7 @@ app.delete("/all-studios/:id", verifyToken, async (req, res) => {
   res.send(result);
 });
 
-app.post("/all-studios/booking", verifyToken, async (req, res) => {
+const createBooking = async (req, res) => {
   await withBookingLock(async () => {
     const email = normalizedEmail(req.user.email);
     const studioId = typeof req.body.studioId === "string"
@@ -276,7 +287,10 @@ app.post("/all-studios/booking", verifyToken, async (req, res) => {
     const result = await studioBooking.insertOne(bookingData);
     res.send(result);
   });
-});
+};
+
+app.post("/all-studios/booking", verifyToken, createBooking);
+app.post("/api/bookings", verifyToken, createBooking);
 
 app.get("/all-studios/booking/:email", verifyToken, async (req, res) => {
   const requestedEmail = normalizedEmail(req.params.email);
