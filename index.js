@@ -6,7 +6,7 @@ import { jwtVerify, createRemoteJWKSet } from "jose";
 
 const app = express();
 const PORT = 5000;
-const frontendUrl = process.env.FRONTEND_URI || "http://localhost:3000";
+const frontendUrl = process.env.FRONTEND_URI;
 
 app.use(
   cors({
@@ -316,3 +316,5 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+export default app
